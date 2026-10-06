@@ -136,14 +136,20 @@ const HINTS: &[Hint] = &[
         zh: "旧代码页 (cp1252)。Hermes 会自行修复；如仍出现请用 Windows Terminal。",
     },
     Hint {
-        pat: "python",
-        es: "Fallo con Python: puede haber una versión previa del sistema interfiriendo. El instalador oficial provisiona la suya; re-ejecuta.",
-        zh: "Python 相关失败：可能是系统旧版 Python 冲突。官方安装器会自带环境；请重新运行。",
+        // patron especifico: solo errores reales de python, no "Downloading Python"
+        pat: "python.exe: error",
+        es: "Fallo del intérprete Python. El instalador oficial provisiona el suyo; re-ejecuta.",
+        zh: "Python 解释器错误。官方安装器自带环境；请重新运行。",
     },
     Hint {
-        pat: "pip",
-        es: "Fallo de pip. Se reintenta con `hermes pm install` al final.",
-        zh: "pip 失败。最后会用 `hermes pm install` 重试。",
+        pat: "exit code: 0xc0000135",
+        es: "DLL de runtime faltante (VC++ redistributable). Instala VC_redist x64 y reintenta.",
+        zh: "缺少运行时 DLL（VC++ 运行库）。请安装 VC_redist x64 后重试。",
+    },
+    Hint {
+        pat: "dependency install failed",
+        es: "Fallo instalando dependencias (uv). Suele ser red intermitente o antivirus: reintenta; si persiste, excluye %LOCALAPPDATA%\\hermes del antivirus.",
+        zh: "依赖安装失败（uv）。多为网络不稳或杀毒软件：请重试；若持续，请将 %LOCALAPPDATA%\\hermes 加入杀软白名单。",
     },
     Hint {
         pat: "disk space",
@@ -192,14 +198,8 @@ fn hints_for(line: &str, lang: &str) -> Vec<String> {
     let l = line.to_lowercase();
     HINTS
         .iter()
-        .filter(|h| l.contains(h.pat))
-        .map(|h| {
-            if lang == "zh" {
-                h.zh.to_string()
-            } else {
-                h.es.to_string()
-            }
-        })
+        .filter(|h| !h.pat.is_empty() && !h.es.is_empty() && l.contains(h.pat))
+        .map(|h| if lang == "zh" { h.zh.to_string() } else { h.es.to_string() })
         .collect()
 }
 
@@ -405,17 +405,22 @@ async fn run_install(
         emit("info", &format!("PowerShell: {ps}"));
 
         // ---------- INTENTO 1: -File directo (nunca irm|iex inline: bug #27397) ----------
+        // Intento 2: reintento automatico — los fallos de la fase uv (dependency install
+        // failed) suelen ser transitorios (red/antivirus) y el 2do run retoma con el
+        // clone ya hecho, sin re-descargar nada.
+        let base_args: Vec<String> = vec![
+            "-NoProfile".into(),
+            "-NonInteractive".into(),
+            "-ExecutionPolicy".into(),
+            "Bypass".into(),
+            "-File".into(),
+            ps1.to_string_lossy().to_string(),
+        ];
         let attempts: Vec<(&str, Vec<String>)> = vec![
+            ("intento 1: powershell -File instalar.ps1", base_args.clone()),
             (
-                "intento 1: powershell -File instalar.ps1",
-                vec![
-                    "-NoProfile".into(),
-                    "-NonInteractive".into(),
-                    "-ExecutionPolicy".into(),
-                    "Bypass".into(),
-                    "-File".into(),
-                    ps1.to_string_lossy().to_string(),
-                ],
+                "intento 2: reintentando (fallos transitorios de red/antivirus en fase uv)",
+                base_args.clone(),
             ),
         ];
 
@@ -728,6 +733,35 @@ mod tests {
         let (kind, hint) = classify_line("==> Configurando modelo: glm-5-turbo");
         assert_eq!(kind, "step");
         assert!(hint.is_none());
+    }
+
+    // ---- Regresion con log REAL de ATENCC-LUCAS (v1.0.1) ----
+
+    #[test]
+    fn regresion_descargando_python_no_es_fallo() {
+        // v1.0.1 marcaba esto como fallo por el patron "python" generico
+        let (kind, hint) = classify_line("-> Downloading Python 3.14");
+        assert_ne!(kind, "fail", "'Downloading Python' es progreso, no error");
+        assert!(hint.is_none());
+    }
+
+    #[test]
+    fn regresion_instalado_python_no_es_fallo() {
+        let (kind, _) = classify_line("Installed Python 3.14.7 in 1m 09s");
+        assert_ne!(kind, "fail");
+    }
+
+    #[test]
+    fn regresion_hash_verified_no_es_fallo() {
+        let (kind, _) = classify_line("-> Installing dependencies (hash-verified via uv.lock)");
+        assert_ne!(kind, "fail", "'hash-verified' es progreso, no error");
+    }
+
+    #[test]
+    fn regresion_dependency_install_failed_si_es_fallo() {
+        let (kind, hint) = classify_line("[X] dependency install failed");
+        assert_eq!(kind, "fail");
+        assert!(hint.is_some(), "debe dar hint de uv/antivirus");
     }
 
     #[test]
