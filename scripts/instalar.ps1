@@ -17,7 +17,8 @@ Uso:
 param(
   [string]$EquiposCsv = "",
   [string]$Modelo = "",
-  [switch]$SkipGateway
+  [switch]$SkipGateway,
+  [switch]$SkipAutoUpdate
 )
 
 # La GUI (Rust/Tauri) pasa credenciales por variables de entorno para no
@@ -207,6 +208,37 @@ if (-not $SkipGateway) {
   }
 } else {
   Write-Av "-SkipGateway: gateway NO configurado en esta corrida"
+}
+
+# ---------------------------------------------------------------
+# 5.5 Auto-update semanal (TODOS los equipos, automatico)
+#     Copia actualizar.ps1 a %LOCALAPPDATA%\hermes\bin\ (independiente
+#     del repo) y crea la tarea programada. Se salta con -SkipAutoUpdate.
+# ---------------------------------------------------------------
+if (-not $SkipAutoUpdate) {
+  Write-Paso "Registrando auto-update semanal (lunes 09:00)"
+  try {
+    $binDir  = Join-Path $env:LOCALAPPDATA "hermes\bin"
+    if (-not (Test-Path $binDir)) { New-Item -ItemType Directory -Path $binDir -Force | Out-Null }
+    $dest = Join-Path $binDir "hermes-autoupdate.ps1"
+    $src  = Join-Path $scriptRoot "actualizar.ps1"
+    if (Test-Path $src) {
+      Copy-Item $src $dest -Force
+      # Comillas escapadas \" — requisito de schtasks /TR con rutas con espacios
+      $tr = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `\"$dest`\" -Silent"
+      schtasks /Create /F /SC WEEKLY /D MON /ST 09:00 /TN "Hermes AutoUpdate" /TR $tr | Out-Null
+      if ($LASTEXITCODE -eq 0) {
+        Write-Ok "Tarea 'Hermes AutoUpdate' creada (lunes 09:00)"
+        Write-Ok "Log: %LOCALAPPDATA%\hermes\logs\hermes-autoupdate.log"
+      } else {
+        Write-Av "No se pudo crear la tarea (exit $LASTEXITCODE) - el equipo se actualiza solo al re-ejecutar el instalador"
+      }
+    } else {
+      Write-Av "actualizar.ps1 no encontrado junto al instalador - auto-update omitido"
+    }
+  } catch {
+    Write-Av "auto-update no registrado: $($_.Exception.Message)"
+  }
 }
 
 # ---------------------------------------------------------------

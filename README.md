@@ -102,8 +102,14 @@ Elegi WhatsApp, escanea el QR con el telefono → queda emparejado para siempre
 
 ## Actualizacion
 
+- **Automatica en TODOS los equipos**: `instalar.ps1` registra solo la tarea
+  programada **"Hermes AutoUpdate"** (lunes 09:00): `hermes update` +
+  `hermes pm install` + reinicio del gateway, con log en
+  `%LOCALAPPDATA%\hermes\logs\hermes-autoupdate.log`. El script se copia a
+  `%LOCALAPPDATA%\hermes\bin\` — la tarea sigue viva aunque borres la carpeta del repo.
+  Para omitirlo: `instalar.ps1 -SkipAutoUpdate`.
 - **Manual:** `powershell -File scripts\actualizar.ps1` (o re-ejecutar `instalar.bat` — detecta que ya esta instalado y solo actualiza).
-- **Automatico:** ejecuta una vez `scripts\registrar-actualizacion.ps1` → queda tarea semanal que actualiza y reinicia el gateway sola, con log en `%LOCALAPPDATA%\hermes\logs\hermes-autoupdate.log`.
+- **Re-registrar la tarea** (si se borro): `scripts\registrar-actualizacion.ps1`.
 
 ## Seguridad
 
