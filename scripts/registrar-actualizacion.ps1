@@ -20,8 +20,8 @@ if (-not (Test-Path $binDir)) { New-Item -ItemType Directory -Path $binDir -Forc
 $dest = Join-Path $binDir "hermes-autoupdate.ps1"
 Copy-Item $actualizar $dest -Force
 
-# Comillas escapadas \" — requisito de schtasks /TR cuando la ruta tiene espacios
-$tr = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \`"$dest\`" -Silent"
+# Comilla-dentro-de-comilla PS (")") para schtasks /TR con rutas con espacios
+$tr = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{0}" -Silent' -f $dest
 schtasks /Create /F /SC WEEKLY /D MON /ST 09:00 /TN "Hermes AutoUpdate" /TR $tr
 
 if ($LASTEXITCODE -eq 0) {

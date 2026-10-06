@@ -224,8 +224,9 @@ if (-not $SkipAutoUpdate) {
     $src  = Join-Path $scriptRoot "actualizar.ps1"
     if (Test-Path $src) {
       Copy-Item $src $dest -Force
-      # Comillas escapadas \" — requisito de schtasks /TR con rutas con espacios
-      $tr = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `\"$dest`\" -Silent"
+      # Ruta sin espacios posibles (%LOCALAPPDATA% puede tener espacios si el usuario los tiene):
+      # comilla-dentro-de-comilla PS (")") dentro de la cadena para schtasks /TR
+      $tr = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{0}" -Silent' -f $dest
       schtasks /Create /F /SC WEEKLY /D MON /ST 09:00 /TN "Hermes AutoUpdate" /TR $tr | Out-Null
       if ($LASTEXITCODE -eq 0) {
         Write-Ok "Tarea 'Hermes AutoUpdate' creada (lunes 09:00)"
