@@ -1,0 +1,60 @@
+name: build-windows
+
+# Compila el instalador Tauri para Windows en cada tag v*.
+# Regla anti-rompimiento: el job SIEMPRE compila contra la ultima version
+# del install.ps1 oficial (main de NousResearch), nunca cachea un pin viejo.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Rust estable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            installer-app/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('installer-app/src-tauri/Cargo.lock') }}
+
+      - name: Compilar (release)
+        working-directory: installer-app/src-tauri
+        run: cargo build --release
+
+      - name: Tests del clasificador de fallos
+        working-directory: installer-app/src-tauri
+        run: cargo test
+
+      # Smoke test: el binario debe exponer la CLI de Tauri sin crashear
+      - name: Smoke test binario
+        working-directory: installer-app/src-tauri
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "target\release\hermes-installer.exe" -PassThru
+          Start-Sleep -Seconds 5
+          if ($p.HasExited) { throw "El binario crasheo al arrancar (exit $($p.ExitCode))" }
+          Stop-Process -Id $p.Id -Force
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-installer-windows
+          path: installer-app/src-tauri/target/release/hermes-installer.exe
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer-app/src-tauri/target/release/hermes-installer.exe

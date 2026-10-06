@@ -1,0 +1,3 @@
+hostname,modelo,glm_api_key,glm_base_url,telegram_bot_token,telegram_allowed_users,telegram_home_channel
+EQUIPO-EJEMPLO,glm-5-turbo,zai-PEGA-AQUI-la-api-key-de-este-equipo,,1234567890:AA-ejemplo-token-bot-telegram,usuario_telegram_brad,
+OTRO-EQUIPO,glm-5-turbo,zai-OTRA-key-diferente,,9876543210:AA-otro-token-ejemplo,usuario_telegram_brad,123456789

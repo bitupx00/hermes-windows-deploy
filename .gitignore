@@ -1,0 +1,10 @@
+# NUNCA subir a GitHub el CSV real (tiene API keys y tokens de cada equipo)
+config/equipos.csv
+logs/
+*.log
+
+# Rust / build
+installer-app/src-tauri/target/
+installer-app/src-tauri/gen/
+*.exe
+

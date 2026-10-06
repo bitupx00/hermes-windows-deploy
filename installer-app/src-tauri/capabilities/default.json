@@ -1,0 +1,10 @@
+{
+  "$schema": "gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permisos minimos: comandos propios del instalador + abrir carpetas",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:allow-open-path"
+  ]
+}

@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hermes Agent 安装器 / Instalador</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #171a23; --panel2: #1e2230; --line: #2a2f40;
+    --txt: #e8eaf2; --mut: #8b91a8; --acc: #4f8cff; --ok: #3ecf8e; --warn: #f5b455; --fail: #ff6b6b;
+    --mono: 'Cascadia Code', 'Consolas', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--txt); font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header .logo { font-size: 20px; }
+  header h1 { font-size: 15px; font-weight: 600; flex: 1; }
+  header .sub { font-size: 11px; color: var(--mut); display: block; font-weight: 400; }
+  .lang-btn { background: var(--panel2); border: 1px solid var(--line); color: var(--txt); border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 12px; }
+  .lang-btn:hover { border-color: var(--acc); }
+
+  .tabs { display: flex; gap: 4px; padding: 8px 16px 0; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .tab { padding: 8px 18px; cursor: pointer; border-radius: 8px 8px 0 0; color: var(--mut); font-size: 13px; border: 1px solid transparent; border-bottom: none; }
+  .tab.active { background: var(--bg); color: var(--txt); border-color: var(--line); }
+
+  main { flex: 1; overflow: hidden; }
+  .page { display: none; height: 100%; overflow-y: auto; padding: 18px 20px; }
+  .page.active { display: block; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 13px; margin-bottom: 10px; color: var(--acc); text-transform: uppercase; letter-spacing: .5px; }
+  .kv { display: grid; grid-template-columns: 170px 1fr; gap: 4px 12px; font-size: 13px; }
+  .kv .k { color: var(--mut); }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge.ok { background: rgba(62,207,142,.15); color: var(--ok); }
+  .badge.no { background: rgba(255,107,107,.15); color: var(--fail); }
+  .badge.warn { background: rgba(245,180,85,.15); color: var(--warn); }
+
+  input[type=text], input[type=password] { width: 100%; background: var(--panel2); border: 1px solid var(--line); color: var(--txt); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+  input:focus { outline: none; border-color: var(--acc); }
+  label { font-size: 12px; color: var(--mut); display: block; margin: 10px 0 4px; }
+
+  .btn { background: var(--acc); color: #fff; border: none; border-radius: 8px; padding: 10px 22px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.sec { background: var(--panel2); border: 1px solid var(--line); color: var(--txt); font-weight: 400; }
+  .btn.danger { background: var(--fail); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+  .progress-outer { background: var(--panel2); border-radius: 6px; height: 8px; overflow: hidden; margin: 10px 0; }
+  .progress-inner { height: 100%; background: linear-gradient(90deg, var(--acc), var(--ok)); width: 0%; transition: width .4s; }
+
+  #log { background: #0a0c10; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-family: var(--mono); font-size: 12px; height: 340px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+  #log .out { color: #b6bccf; }
+  #log .err { color: var(--fail); }
+  #log .info { color: var(--mut); }
+  #log .ok { color: var(--ok); }
+  #log .warn { color: var(--warn); }
+  #log .fail { color: var(--fail); font-weight: 600; }
+  #log .step { color: var(--acc); font-weight: 600; margin-top: 6px; }
+  #log .hint { color: var(--warn); font-style: italic; }
+  #log .hint::before { content: "💡 "; }
+
+  /* Chat */
+  .chat-wrap { display: flex; flex-direction: column; height: 100%; }
+  #chat-log { flex: 1; overflow-y: auto; padding: 6px 2px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 82%; padding: 9px 13px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; }
+  .msg.user { align-self: flex-end; background: var(--acc); color: #fff; border-bottom-right-radius: 3px; }
+  .msg.bot { align-self: flex-start; background: var(--panel2); border: 1px solid var(--line); border-bottom-left-radius: 3px; }
+  .msg.err { align-self: stretch; background: rgba(255,107,107,.1); border: 1px solid var(--fail); color: var(--fail); font-size: 12px; }
+  .chat-input-row { display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .chat-input-row input { flex: 1; }
+  .thinking { color: var(--mut); font-size: 12px; font-style: italic; padding: 4px 6px; }
+
+  .foot { padding: 8px 16px; background: var(--panel); border-top: 1px solid var(--line); font-size: 11px; color: var(--mut); display: flex; justify-content: space-between; }
+  .result-banner { border-radius: 8px; padding: 12px 14px; font-size: 14px; font-weight: 600; margin-top: 12px; display: none; }
+  .result-banner.ok { display: block; background: rgba(62,207,142,.12); border: 1px solid var(--ok); color: var(--ok); }
+  .result-banner.fail { display: block; background: rgba(255,107,107,.12); border: 1px solid var(--fail); color: var(--fail); }
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">☤</span>
+  <h1><span data-i="title">Instalador Hermes Agent</span><span class="sub" data-i="subtitle">Windows 10/11 · GLM (Z.AI) · Telegram · WhatsApp</span></h1>
+  <button class="lang-btn" id="langBtn">中文 / ES</button>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="install" data-i="tab_install">Instalar</div>
+  <div class="tab" data-tab="chat" data-i="tab_chat">Chat GLM</div>
+  <div class="tab" data-tab="help" data-i="tab_help">Ayuda</div>
+</div>
+
+<main>
+  <!-- ================= INSTALAR ================= -->
+  <div class="page active" id="page-install">
+    <div class="card">
+      <h2 data-i="host_title">Equipo</h2>
+      <div class="kv" id="host-info"></div>
+    </div>
+
+    <div class="card">
+      <h2 data-i="cred_title">Credenciales de este equipo</h2>
+      <label data-i="lbl_csv">CSV de equipos (opcional — completa automáticamente)</label>
+      <input type="text" id="csv-path" placeholder="C:\hermes\config\equipos.csv" />
+      <label data-i="lbl_glm">GLM API Key (Z.AI) — obligatoria</label>
+      <input type="password" id="glm-key" placeholder="zai-..." />
+      <div class="row" style="margin-top:8px">
+        <button class="btn sec" id="btn-test-key" data-i="btn_test">Probar API key</button>
+        <span id="key-test-result" style="font-size:12px"></span>
+      </div>
+      <label data-i="lbl_model">Modelo</label>
+      <input type="text" id="model" value="glm-5-turbo" />
+      <label data-i="lbl_tg">Token de bot de Telegram (opcional)</label>
+      <input type="password" id="tg-token" placeholder="123456:AA..." />
+    </div>
+
+    <div class="card">
+      <h2 data-i="run_title">Instalación</h2>
+      <div class="row">
+        <button class="btn" id="btn-install" data-i="btn_install">Instalar / Actualizar</button>
+        <button class="btn danger" id="btn-cancel" data-i="btn_cancel" disabled>Cancelar</button>
+      </div>
+      <div class="progress-outer"><div class="progress-inner" id="prog"></div></div>
+      <div id="log"></div>
+      <div class="result-banner" id="banner"></div>
+    </div>
+  </div>
+
+  <!-- ================= CHAT ================= -->
+  <div class="page" id="page-chat">
+    <div class="chat-wrap">
+      <div style="padding:0 2px 8px; font-size:12px; color:var(--mut)" data-i="chat_hint">
+        Chat directo con GLM — útil para pedir ayuda con errores del instalador. Usa la API key de la pestaña Instalar.
+      </div>
+      <div id="chat-log"></div>
+      <div class="thinking" id="thinking" style="display:none" data-i="thinking">GLM pensando…</div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" data-i-ph="chat_ph" placeholder="Pregunta algo… / 有什么问题？" />
+        <button class="btn" id="btn-send" data-i="btn_send">Enviar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= AYUDA ================= -->
+  <div class="page" id="page-help">
+    <div class="card">
+      <h2 data-i="help_title">Fallos conocidos y soluciones</h2>
+      <div id="help-body" style="font-size:13px; line-height:1.7"></div>
+    </div>
+    <div class="card">
+      <h2 data-i="help2_title">WhatsApp</h2>
+      <div style="font-size:13px; line-height:1.7" data-i="help_wa">Tras instalar, ejecuta en un terminal: hermes gateway setup → WhatsApp → escanea el QR una sola vez. Los reinicios no vuelven a pedir QR.</div>
+    </div>
+  </div>
+</main>
+
+<div class="foot">
+  <span>Hermes Installer v1.0.0 · Nous Research</span>
+  <span data-i="foot2">Instalador oficial + verificación automática</span>
+</div>
+
+<script>
+const { invoke } = window.__TAURI__.core;
+const { listen } = window.__TAURI__.event;
+
+// ---------- i18n ----------
+const I18N = {
+  es: {
+    title: "Instalador Hermes Agent",
+    subtitle: "Windows 10/11 · GLM (Z.AI) · Telegram · WhatsApp",
+    tab_install: "Instalar", tab_chat: "Chat GLM", tab_help: "Ayuda",
+    host_title: "Equipo", cred_title: "Credenciales de este equipo",
+    lbl_csv: "CSV de equipos (opcional — completa automáticamente)",
+    lbl_glm: "GLM API Key (Z.AI) — obligatoria", lbl_model: "Modelo",
+    lbl_tg: "Token de bot de Telegram (opcional)",
+    btn_test: "Probar API key", btn_install: "Instalar / Actualizar",
+    btn_cancel: "Cancelar", btn_send: "Enviar",
+    run_title: "Instalación",
+    chat_hint: "Chat directo con GLM — útil para pedir ayuda con errores del instalador. Usa la API key de la pestaña Instalar.",
+    chat_ph: "Pregunta algo…", thinking: "GLM pensando…",
+    help_title: "Fallos conocidos y soluciones",
+    help2_title: "WhatsApp",
+    help_wa: "Tras instalar, ejecuta en un terminal: hermes gateway setup → WhatsApp → escanea el QR una sola vez. Los reinicios no vuelven a pedir QR.",
+    foot2: "Instalador oficial + verificación automática",
+    os: "Sistema", hostname: "Hostname", hermes_now: "Hermes actual",
+    csv_row: "Fila en CSV", installed: "instalado", not_installed: "no instalado",
+    key_ok: "✓ API key válida", key_bad: "✗ rechazada",
+    done_ok: "✓ Instalación completa y verificada. Abre un terminal NUEVO y escribe: hermes",
+    done_fail: "✗ La instalación falló — revisa las pistas 💡 del registro",
+    help_items: [
+      ["ExecutionPolicy bloquea el script", "El instalador ya pasa -ExecutionPolicy Bypass. Si persiste: powershell -Command Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"],
+      ["BOM UTF-8 en install.ps1 (error 'assignment expression')", "Bug conocido #27397. Esta app ejecuta el PS1 descargado con -File, evitando el one-liner roto."],
+      ["'hermes' no reconocido tras instalar", "El PATH se actualiza en la sesión: abre un terminal NUEVO (no reutilices el mismo cmd)."],
+      ["Acceso denegado / 0x80070005", "Antivirus o carpeta protegida. Excluye %LOCALAPPDATA%\\hermes en el antivirus y reintenta."],
+      ["Fallo de red / TLS / DNS", "Revisa proxy corporativo, VPN y firewall. Se necesita acceso a hermes-agent.nousresearch.com y api.z.ai."],
+      ["Error 1113 de Z.AI", "NO es saldo: el modelo no está en tu plan. Usa glm-5-turbo o glm-4.6 (incluidos en Coding Plan)."],
+      ["UnicodeEncodeError 'charmap'", "Usa Windows Terminal o PowerShell 7. Hermes arregla el code page él mismo al arrancar."],
+      ["Sin espacio en disco", "La instalación completa necesita ~3 GB libres en C:."],
+    ],
+  },
+  zh: {
+    title: "Hermes Agent 安装器",
+    subtitle: "Windows 10/11 · GLM (Z.AI) · Telegram · WhatsApp",
+    tab_install: "安装", tab_chat: "GLM 对话", tab_help: "帮助",
+    host_title: "本机", cred_title: "本机凭据",
+    lbl_csv: "设备 CSV（可选 — 自动填充）",
+    lbl_glm: "GLM API 密钥 (Z.AI) — 必填", lbl_model: "模型",
+    lbl_tg: "Telegram 机器人 Token（可选）",
+    btn_test: "测试密钥", btn_install: "安装 / 更新",
+    btn_cancel: "取消", btn_send: "发送",
+    run_title: "安装",
+    chat_hint: "直接与 GLM 对话 — 遇到安装错误可以在这里求助。使用“安装”页的 API 密钥。",
+    chat_ph: "有什么问题…", thinking: "GLM 思考中…",
+    help_title: "已知故障与解决方案",
+    help2_title: "WhatsApp",
+    help_wa: "安装完成后在终端运行：hermes gateway setup → WhatsApp → 扫码一次即可。重启无需重新扫码。",
+    foot2: "官方安装器 + 自动验证",
+    os: "系统", hostname: "主机名", hermes_now: "Hermes 状态",
+    csv_row: "CSV 记录", installed: "已安装", not_installed: "未安装",
+    key_ok: "✓ 密钥有效", key_bad: "✗ 被拒绝",
+    done_ok: "✓ 安装完成并通过验证。请打开新终端输入：hermes",
+    done_fail: "✗ 安装失败 — 请查看日志中的 💡 提示",
+    help_items: [
+      ["执行策略阻止脚本", "安装器已使用 -ExecutionPolicy Bypass。若仍失败：powershell -Command Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"],
+      ["install.ps1 的 UTF-8 BOM 错误（assignment expression）", "已知问题 #27397。本程序用 -File 执行下载的脚本，避开损坏的单行命令。"],
+      ["安装后 'hermes' 无法识别", "PATH 在新会话生效：请打开新终端（不要复用旧 cmd）。"],
+      ["拒绝访问 / 0x80070005", "杀毒软件或文件夹受保护。请在杀软中排除 %LOCALAPPDATA%\\hermes 后重试。"],
+      ["网络 / TLS / DNS 失败", "检查公司代理、VPN 和防火墙。需要访问 hermes-agent.nousresearch.com 和 api.z.ai。"],
+      ["Z.AI 1113 错误", "不是余额问题：该模型不在你的套餐内。请使用 glm-5-turbo 或 glm-4.6。"],
+      ["UnicodeEncodeError 'charmap'", "请使用 Windows Terminal 或 PowerShell 7。Hermes 启动时会自行修复代码页。"],
+      ["磁盘空间不足", "完整安装需要 C: 盘约 3 GB 可用空间。"],
+    ],
+  },
+};
+let LANG = "es";
+
+function applyLang() {
+  const t = I18N[LANG];
+  document.querySelectorAll("[data-i]").forEach(el => {
+    const k = el.dataset.i;
+    if (t[k]) el.textContent = t[k];
+  });
+  document.querySelectorAll("[data-i-ph]").forEach(el => {
+    const k = el.dataset.iPh;
+    if (t[k]) el.placeholder = t[k];
+  });
+  renderHelp();
+  refreshHost();
+}
+
+// ---------- Tabs ----------
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById("page-" + tab.dataset.tab).classList.add("active");
+  };
+});
+
+document.getElementById("langBtn").onclick = () => { LANG = LANG === "es" ? "zh" : "es"; applyLang(); };
+
+// ---------- Host info ----------
+async function refreshHost() {
+  const t = I18N[LANG];
+  try {
+    const h = await invoke("detect_host");
+    document.getElementById("host-info").innerHTML = `
+      <span class="k">${t.os}</span><span>${h.os} ${h.is_windows ? "(Windows)" : ""}</span>
+      <span class="k">${t.hostname}</span><span>${h.hostname}</span>
+      <span class="k">${t.hermes_now}</span><span>${h.hermes_installed
+        ? `<span class="badge ok">${t.installed}</span>`
+        : `<span class="badge no">${t.not_installed}</span>`}</span>`;
+  } catch (e) { console.error(e); }
+}
+
+function renderHelp() {
+  const t = I18N[LANG];
+  document.getElementById("help-body").innerHTML = t.help_items
+    .map(([q, a]) => `<div style="margin-bottom:10px"><b style="color:var(--warn)">⚠ ${q}</b><br><span style="color:var(--mut)">${a}</span></div>`)
+    .join("");
+}
+
+// ---------- CSV ----------
+document.getElementById("csv-path").addEventListener("change", async (e) => {
+  const path = e.target.value.trim();
+  if (!path) return;
+  try {
+    await invoke("set_csv_path", { path });
+    const row = await invoke("lookup_equipo", {});
+    const t = I18N[LANG];
+    const el = document.getElementById("host-info");
+    el.innerHTML += `<span class="k">${t.csv_row}</span><span>${row.found
+      ? (row.has_glm_key ? '<span class="badge ok">GLM ✓</span> ' : '<span class="badge warn">GLM ?</span> ') +
+        (row.has_telegram ? '<span class="badge ok">TG ✓</span>' : '<span class="badge no">TG —</span>')
+      : '<span class="badge no">hostname no encontrado</span>'}</span>`;
+  } catch (err) { console.error(err); }
+});
+
+// ---------- API key test ----------
+document.getElementById("btn-test-key").onclick = async () => {
+  const key = document.getElementById("glm-key").value.trim();
+  const model = document.getElementById("model").value.trim();
+  const out = document.getElementById("key-test-result");
+  const t = I18N[LANG];
+  if (!key) { out.textContent = "GLM API Key ⚠"; out.style.color = "var(--warn)"; return; }
+  out.textContent = "…"; out.style.color = "var(--mut)";
+  try {
+    const r = await invoke("test_glm_key", { apiKey: key, model });
+    out.textContent = r.ok ? t.key_ok : `${t.key_bad} (${r.status}) ${r.hint || ""}`;
+    out.style.color = r.ok ? "var(--ok)" : "var(--fail)";
+  } catch (e) { out.textContent = String(e); out.style.color = "var(--fail)"; }
+};
+
+// ---------- Instalación ----------
+let installing = false;
+const logEl = document.getElementById("log");
+function log(kind, text) {
+  const d = document.createElement("div");
+  d.className = kind;
+  d.textContent = text;
+  logEl.appendChild(d);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+listen("install-log", (ev) => { log(ev.payload.kind, ev.payload.text); });
+listen("install-done", (ev) => {
+  installing = false;
+  document.getElementById("btn-install").disabled = false;
+  document.getElementById("btn-cancel").disabled = true;
+  const b = document.getElementById("banner");
+  const t = I18N[LANG];
+  if (ev.payload.ok) { b.className = "result-banner ok"; b.textContent = t.done_ok; }
+  else { b.className = "result-banner fail"; b.textContent = ev.payload.error || t.done_fail; }
+  refreshHost();
+});
+
+document.getElementById("btn-install").onclick = async () => {
+  const key = document.getElementById("glm-key").value.trim();
+  const tgToken = document.getElementById("tg-token").value.trim();
+  const model = document.getElementById("model").value.trim() || "glm-5-turbo";
+  const csvPath = document.getElementById("csv-path").value.trim();
+  const t = I18N[LANG];
+  if (!key) { alert(LANG === "zh" ? "请先填写 GLM API 密钥" : "Primero ingresa la GLM API Key"); return; }
+  installing = true;
+  logEl.innerHTML = "";
+  document.getElementById("banner").className = "result-banner";
+  document.getElementById("btn-install").disabled = true;
+  document.getElementById("btn-cancel").disabled = false;
+  document.getElementById("prog").style.width = "15%";
+  setTimeout(() => document.getElementById("prog").style.width = "60%", 8000);
+  try {
+    await invoke("run_install", { lang: LANG, glmKey: key || null, tgToken: tgToken || null, model, csvPath: csvPath || null });
+  } catch (e) { log("fail", String(e)); }
+};
+document.getElementById("btn-cancel").onclick = () => invoke("cancel_install");
+
+// ---------- Chat GLM ----------
+const chatLog = document.getElementById("chat-log");
+const chatInput = document.getElementById("chat-input");
+const thinking = document.getElementById("thinking");
+let history = [];
+
+function addMsg(role, text, cls) {
+  const d = document.createElement("div");
+  d.className = "msg " + (cls || role);
+  d.textContent = text;
+  chatLog.appendChild(d);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+listen("chat-delta", (ev) => {
+  thinking.style.display = "none";
+  const c = ev.payload.content || (ev.payload.finish_reason === "length" ? "(sin contenido: presupuesto de tokens — sube max_tokens)" : "");
+  addMsg("bot", c);
+  history.push({ role: "assistant", content: c });
+});
+listen("chat-error", (ev) => {
+  thinking.style.display = "none";
+  addMsg("err", `HTTP ${ev.payload.status} ${ev.payload.hint || ""}\n${ev.payload.body}`);
+});
+
+async function sendChat() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+  const key = document.getElementById("glm-key").value.trim();
+  if (!key) { addMsg("err", LANG === "zh" ? "请先在“安装”页填写 GLM API 密钥" : "Primero ingresa la GLM API Key en la pestaña Instalar"); return; }
+  const model = document.getElementById("model").value.trim();
+  chatInput.value = "";
+  addMsg("user", text);
+  history.push({ role: "user", content: text });
+  thinking.style.display = "block";
+  try {
+    await invoke("chat_send", { apiKey: key, model, history });
+  } catch (e) { thinking.style.display = "none"; addMsg("err", String(e)); }
+}
+document.getElementById("btn-send").onclick = sendChat;
+chatInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
+
+// ---------- Init ----------
+(async () => {
+  try { LANG = await invoke("get_lang"); } catch {}
+  applyLang();
+})();
+</script>
+</body>
+</html>
