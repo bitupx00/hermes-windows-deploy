@@ -380,6 +380,13 @@ async fn run_install(
         .path()
         .resource_dir()
         .map_err(|e| format!("resource dir: {e}"))?;
+    // Quitar prefijo verbatim \\?\ : PowerShell 5.1 no lo soporta en Join-Path/Split-Path
+    // (causa: "value of argument drive is null" dentro del PS1)
+    let resource_dir = {
+        let s = resource_dir.to_string_lossy().to_string();
+        let s = s.trim_start_matches(r"\\?\").to_string();
+        PathBuf::from(s)
+    };
     let ps1 = resource_dir.join("scripts").join("instalar.ps1");
 
     emit("info", &format!("Hostname: {}", std::env::var("COMPUTERNAME").or_else(|_| std::env::var("HOSTNAME")).unwrap_or_default()));
@@ -421,7 +428,6 @@ async fn run_install(
                 break;
             }
             emit("step", label);
-            let _ = app.emit("install-log", LineEvent { kind: "step", text: label.to_string() });
 
             let mut cmd = Command::new(ps);
             cmd.args(&args)

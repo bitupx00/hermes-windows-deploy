@@ -37,8 +37,14 @@ function Write-Ok([string]$m)   { Write-Host "    [OK] $m" -ForegroundColor Gree
 function Write-Av([string]$m)   { Write-Host "    [!]  $m" -ForegroundColor Yellow }
 
 $pc = $env:COMPUTERNAME
-$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot   = Split-Path -Parent $scriptRoot
+# Resolucion robusta de rutas: $PSScriptRoot con fallback, y SIN prefijo verbatim \\?\
+# (PowerShell 5.1 falla con Join-Path/Split-Path sobre rutas \\?\ — bug real en ATENCC-LUCAS)
+$scriptRoot = $PSScriptRoot
+if (-not $scriptRoot) { $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path }
+if ($scriptRoot -and $scriptRoot.StartsWith('\\?\')) { $scriptRoot = $scriptRoot.Substring(4) }
+$repoRoot = $null
+if ($scriptRoot) { $repoRoot = Split-Path -Parent $scriptRoot }
+if ($repoRoot -and $repoRoot.StartsWith('\\?\')) { $repoRoot = $repoRoot.Substring(4) }
 
 # ---------------------------------------------------------------
 # 1. Credenciales por equipo
@@ -46,7 +52,7 @@ $repoRoot   = Split-Path -Parent $scriptRoot
 Write-Paso "Cargando credenciales para equipo '$pc'"
 
 $csvPath = $EquiposCsv
-if (-not $csvPath) { $csvPath = Join-Path $repoRoot "config\equipos.csv" }
+if (-not $csvPath -and $repoRoot) { $csvPath = Join-Path $repoRoot "config\equipos.csv" }
 
 $row = $null
 if ($EnvGlmKey) {
@@ -57,7 +63,7 @@ if ($EnvGlmKey) {
   $TgToken    = $EnvTgToken
   $TgUsers    = $env:HERMES_INSTALL_TG_USERS
   $TgHome     = $env:HERMES_INSTALL_TG_HOME
-} elseif (Test-Path $csvPath) {
+} elseif ($csvPath -and (Test-Path $csvPath)) {
   $rows = ConvertFrom-Csv (Get-Content $csvPath -Encoding UTF8 | Out-String)
   foreach ($r in $rows) { if ($r.hostname -eq $pc) { $row = $r; break } }
 }
